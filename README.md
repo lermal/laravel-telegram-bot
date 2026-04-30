@@ -22,6 +22,9 @@ TELEGRAM_BOT_TOKEN=123456:ABCDEF
 TELEGRAM_WEBHOOK_ENABLED=true
 TELEGRAM_WEBHOOK_PATH=telegram/webhook
 TELEGRAM_WEBHOOK_SECRET=your-generated-secret
+TELEGRAM_RATE_LIMIT_RPS=30
+TELEGRAM_RATE_LIMIT_MAX_IDENTICAL_COMMANDS=3
+TELEGRAM_RATE_LIMIT_WINDOW_SECONDS=10
 ```
 
 ## Basic usage
@@ -91,6 +94,18 @@ For webhook mode:
 ```bash
 php artisan telegram:webhook:set "https://your-domain.com/telegram/webhook"
 ```
+
+## Queue and rate-limits
+
+Outgoing Telegram API calls are rate-limited and queued in-process:
+
+- `TELEGRAM_RATE_LIMIT_RPS` - max API requests per second (default: `30`).
+- calls above this limit wait in queue and execute when a slot is available.
+
+Incoming command spam is limited per chat:
+
+- `TELEGRAM_RATE_LIMIT_MAX_IDENTICAL_COMMANDS` - how many identical commands are allowed in window (default: `3`).
+- `TELEGRAM_RATE_LIMIT_WINDOW_SECONDS` - window in seconds for identical commands (default: `10`).
 
 ## Commands
 

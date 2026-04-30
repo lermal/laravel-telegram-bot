@@ -2,8 +2,10 @@
 
 namespace Lermal\LaravelTelegram;
 
+use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Cache\RateLimiter;
 use Lermal\LaravelTelegram\Contracts\TelegramClientInterface;
 use Lermal\LaravelTelegram\Exceptions\TelegramApiException;
 
@@ -11,16 +13,25 @@ class TelegramClient implements TelegramClientInterface
 {
     public function __construct(
         private readonly HttpFactory $http,
+        private readonly CacheRepository $cache,
+        private readonly RateLimiter $rateLimiter,
         private readonly string $botToken,
         private readonly string $baseUrl,
         private readonly int $timeout,
         private readonly int $connectTimeout,
         private readonly int $retryTimes,
         private readonly int $retrySleepMs,
+        private readonly int $maxRequestsPerSecond,
+        private readonly string $rateLimitKey,
+        private readonly string $queueLockKey,
+        private readonly int $queueLockSeconds,
+        private readonly int $waitSleepMs,
     ) {}
 
     public function call(string $method, array $payload = []): array
     {
+        $this->waitForRateLimitSlot();
+
         $url = sprintf(
             '%s/bot%s/%s',
             rtrim($this->baseUrl, '/'),
@@ -115,5 +126,20 @@ class TelegramClient implements TelegramClientInterface
         return $this->call('deleteWebhook', [
             'drop_pending_updates' => $dropPendingUpdates,
         ]);
+    }
+
+    private function waitForRateLimitSlot(): void
+    {
+        if ($this->maxRequestsPerSecond <= 0) {
+            return;
+        }
+
+        $this->cache->lock($this->queueLockKey, $this->queueLockSeconds)->block(3, function (): void {
+            while ($this->rateLimiter->tooManyAttempts($this->rateLimitKey, $this->maxRequestsPerSecond)) {
+                usleep(max($this->waitSleepMs, 1) * 1000);
+            }
+
+            $this->rateLimiter->hit($this->rateLimitKey, 1);
+        });
     }
 }
