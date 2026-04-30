@@ -1,4 +1,4 @@
-# lermal/laravel-telegram
+# lermal/laravel-telegram-bot
 
 Laravel-пакет для Telegram Bot API с поддержкой webhook и polling.
 
@@ -16,11 +16,16 @@ Laravel-пакет для Telegram Bot API с поддержкой webhook и po
 ## Быстрый старт
 
 ```bash
-composer require lermal/laravel-telegram
+composer require lermal/laravel-telegram-bot
 php artisan telegram:install
 ```
 
 Далее настройте хэндлеры в `config/telegram.php`.
+
+## Требования
+
+- PHP 8.3+
+- Laravel 13+
 
 ## Основные команды
 
@@ -35,8 +40,17 @@ php artisan telegram:install
 Подробная документация, архитектура, примеры и troubleshooting:
 <https://github.com/lermal/laravel-telegram-bot/wiki>
 
+## Поддержка
+
+- Issues: <https://github.com/lermal/laravel-telegram-bot/issues>
+- Source: <https://github.com/lermal/laravel-telegram-bot>
+
 ## Тестирование
 
 ```bash
 composer test
 ```
+
+## Лицензия
+
+MIT

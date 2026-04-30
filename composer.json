@@ -1,5 +1,5 @@
 {
-    "name": "lermal/laravel-telegram",
+    "name": "lermal/laravel-telegram-bot",
     "description": "Laravel package for Telegram Bot API interactions with webhook and polling support.",
     "keywords": [
         "laravel",
@@ -14,6 +14,11 @@
             "name": "lermal"
         }
     ],
+    "homepage": "https://github.com/lermal/laravel-telegram-bot",
+    "support": {
+        "issues": "https://github.com/lermal/laravel-telegram-bot/issues",
+        "source": "https://github.com/lermal/laravel-telegram-bot"
+    },
     "require": {
         "php": "^8.3",
         "illuminate/support": "^13.0",

@@ -1,8 +1,8 @@
 <?php
 
 use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Str;
 use Lermal\LaravelTelegram\Contracts\TelegramClientInterface;
 use Lermal\LaravelTelegram\Dispatching\UpdateDispatcher;
 use Lermal\LaravelTelegram\Events\PollingError;
