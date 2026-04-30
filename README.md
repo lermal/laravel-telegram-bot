@@ -2,6 +2,8 @@
 
 Laravel package for Telegram Bot API with webhook and polling support.
 
+Language: **English** | [Русский](README.ru.md)
+
 ## Installation
 
 ```bash
