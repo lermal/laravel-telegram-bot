@@ -32,6 +32,20 @@ it('deletes webhook with drop pending option', function (): void {
     ])->assertSuccessful();
 });
 
+it('shows webhook info', function (): void {
+    $client = Mockery::mock(TelegramClientInterface::class);
+    $client
+        ->shouldReceive('getWebhookInfo')
+        ->once()
+        ->andReturnUsing(static fn (): array => [
+            'url' => 'https://example.com/telegram/webhook',
+            'pending_update_count' => 2,
+        ]);
+    $this->app->instance(TelegramClientInterface::class, $client);
+
+    $this->artisan('telegram:webhook:info')->assertSuccessful();
+});
+
 it('polls updates once and stores next offset', function (): void {
     config()->set('telegram.polling.offset_cache_key', 'telegram:test:polling:offset');
     config()->set('telegram.polling.limit', 100);

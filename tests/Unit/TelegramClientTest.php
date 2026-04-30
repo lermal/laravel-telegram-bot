@@ -49,3 +49,62 @@ it('throws exception on http layer failure', function (): void {
     expect(fn () => $client->sendMessage(['chat_id' => 1, 'text' => 'Hello']))
         ->toThrow(TelegramApiException::class);
 });
+
+it('gets webhook info', function (): void {
+    Http::fake([
+        'https://api.telegram.org/*' => Http::response([
+            'ok' => true,
+            'result' => [
+                'url' => 'https://example.com/telegram/webhook',
+                'pending_update_count' => 0,
+            ],
+        ]),
+    ]);
+
+    /** @var TelegramClientInterface $client */
+    $client = $this->app->make(TelegramClientInterface::class);
+    $result = $client->getWebhookInfo();
+
+    expect($result)->toBe([
+        'url' => 'https://example.com/telegram/webhook',
+        'pending_update_count' => 0,
+    ]);
+});
+
+it('sets bot commands', function (): void {
+    Http::fake([
+        'https://api.telegram.org/*' => Http::response([
+            'ok' => true,
+            'result' => ['ok' => true],
+        ]),
+    ]);
+
+    /** @var TelegramClientInterface $client */
+    $client = $this->app->make(TelegramClientInterface::class);
+    $result = $client->setMyCommands([
+        ['command' => 'start', 'description' => 'Start bot'],
+    ]);
+
+    expect($result)->toBe(['ok' => true]);
+    Http::assertSent(function (\Illuminate\Http\Client\Request $request): bool {
+        return $request['commands'][0]['command'] === 'start'
+            && $request['commands'][0]['description'] === 'Start bot';
+    });
+});
+
+it('proxies media and caption methods', function (): void {
+    Http::fake([
+        'https://api.telegram.org/*' => Http::response([
+            'ok' => true,
+            'result' => ['message_id' => 99],
+        ]),
+    ]);
+
+    /** @var TelegramClientInterface $client */
+    $client = $this->app->make(TelegramClientInterface::class);
+
+    expect($client->sendVideo(['chat_id' => 1, 'video' => 'file-id'])['message_id'])->toBe(99);
+    expect($client->sendAudio(['chat_id' => 1, 'audio' => 'file-id'])['message_id'])->toBe(99);
+    expect($client->sendVoice(['chat_id' => 1, 'voice' => 'file-id'])['message_id'])->toBe(99);
+    expect($client->editMessageCaption(['chat_id' => 1, 'message_id' => 2, 'caption' => 'Updated'])['message_id'])->toBe(99);
+});

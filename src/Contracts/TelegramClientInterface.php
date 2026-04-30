@@ -52,9 +52,44 @@ interface TelegramClientInterface
     public function answerCallbackQuery(array $payload): array;
 
     /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function editMessageCaption(array $payload): array;
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function sendVideo(array $payload): array;
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function sendAudio(array $payload): array;
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function sendVoice(array $payload): array;
+
+    /**
+     * @param  array<string, mixed>  $commands
+     * @return array<string, mixed>
+     */
+    public function setMyCommands(array $commands): array;
+
+    /**
      * @return array<string, mixed>
      */
     public function setWebhook(string $url, ?string $secret = null): array;
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getWebhookInfo(): array;
 
     /**
      * @return array<string, mixed>

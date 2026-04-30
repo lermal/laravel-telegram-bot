@@ -8,6 +8,7 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
 use Lermal\LaravelTelegram\Console\DeleteWebhookCommand;
+use Lermal\LaravelTelegram\Console\GetWebhookInfoCommand;
 use Lermal\LaravelTelegram\Console\InstallCommand;
 use Lermal\LaravelTelegram\Console\PollUpdatesCommand;
 use Lermal\LaravelTelegram\Console\SetWebhookCommand;
@@ -79,6 +80,7 @@ class LaravelTelegramServiceProvider extends ServiceProvider
                 PollUpdatesCommand::class,
                 SetWebhookCommand::class,
                 DeleteWebhookCommand::class,
+                GetWebhookInfoCommand::class,
             ]);
         }
     }

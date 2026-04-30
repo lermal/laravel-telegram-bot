@@ -64,6 +64,12 @@ app(\Lermal\LaravelTelegram\Support\RawApiCaller::class)
 - `examples/InlineKeyboardCallbackRouterHandler.php` - реакция на inline callback (`inline:*`).
 - `examples/ReplyKeyboardDemoHandler.php` - отправка reply-клавиатуры с текстовыми кнопками.
 - `examples/ReplyKeyboardResponseHandler.php` - реакция на текст кнопок reply-клавиатуры.
+- `examples/GetWebhookInfoExample.php` - пример `getWebhookInfo`.
+- `examples/SetMyCommandsExample.php` - пример `setMyCommands`.
+- `examples/EditMessageCaptionExample.php` - пример `editMessageCaption`.
+- `examples/SendVideoExample.php` - пример `sendVideo`.
+- `examples/SendAudioExample.php` - пример `sendAudio`.
+- `examples/SendVoiceExample.php` - пример `sendVoice`.
 
 Зарегистрируйте обработчики в конфиге приложения:
 
@@ -112,6 +118,18 @@ php artisan telegram:webhook:set "https://your-domain.com/telegram/webhook"
 ## Команды
 
 - `php artisan telegram:webhook:set {url?}`
+- `php artisan telegram:webhook:info`
 - `php artisan telegram:webhook:delete {--drop-pending-updates}`
 - `php artisan telegram:poll {--once}`
 - `php artisan telegram:install`
+
+## Дополнительные методы клиента
+
+Клиент/фасад также поддерживает:
+
+- `getWebhookInfo()`
+- `setMyCommands(array $commands)`
+- `editMessageCaption(array $payload)`
+- `sendVideo(array $payload)`
+- `sendAudio(array $payload)`
+- `sendVoice(array $payload)`

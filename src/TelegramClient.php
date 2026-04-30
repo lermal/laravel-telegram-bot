@@ -114,6 +114,33 @@ class TelegramClient implements TelegramClientInterface
         return $this->call('answerCallbackQuery', $payload);
     }
 
+    public function editMessageCaption(array $payload): array
+    {
+        return $this->call('editMessageCaption', $payload);
+    }
+
+    public function sendVideo(array $payload): array
+    {
+        return $this->call('sendVideo', $payload);
+    }
+
+    public function sendAudio(array $payload): array
+    {
+        return $this->call('sendAudio', $payload);
+    }
+
+    public function sendVoice(array $payload): array
+    {
+        return $this->call('sendVoice', $payload);
+    }
+
+    public function setMyCommands(array $commands): array
+    {
+        return $this->call('setMyCommands', [
+            'commands' => $commands,
+        ]);
+    }
+
     public function setWebhook(string $url, ?string $secret = null): array
     {
         $payload = ['url' => $url];
@@ -123,6 +150,11 @@ class TelegramClient implements TelegramClientInterface
         }
 
         return $this->call('setWebhook', $payload);
+    }
+
+    public function getWebhookInfo(): array
+    {
+        return $this->call('getWebhookInfo');
     }
 
     public function deleteWebhook(bool $dropPendingUpdates = false): array

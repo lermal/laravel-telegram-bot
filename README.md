@@ -64,6 +64,12 @@ The `examples` directory contains ready-to-use handler examples:
 - `examples/InlineKeyboardCallbackRouterHandler.php` - reacts to inline callbacks (`inline:*`).
 - `examples/ReplyKeyboardDemoHandler.php` - sends a reply keyboard with text buttons.
 - `examples/ReplyKeyboardResponseHandler.php` - reacts to reply keyboard button texts.
+- `examples/GetWebhookInfoExample.php` - demonstrates `getWebhookInfo`.
+- `examples/SetMyCommandsExample.php` - demonstrates `setMyCommands`.
+- `examples/EditMessageCaptionExample.php` - demonstrates `editMessageCaption`.
+- `examples/SendVideoExample.php` - demonstrates `sendVideo`.
+- `examples/SendAudioExample.php` - demonstrates `sendAudio`.
+- `examples/SendVoiceExample.php` - demonstrates `sendVoice`.
 
 Register handlers in your application config:
 
@@ -81,6 +87,12 @@ return [
         App\Telegram\Handlers\InlineKeyboardCallbackRouterHandler::class,
         App\Telegram\Handlers\ReplyKeyboardDemoHandler::class,
         App\Telegram\Handlers\ReplyKeyboardResponseHandler::class,
+        App\Telegram\Handlers\GetWebhookInfoExample::class,
+        App\Telegram\Handlers\SetMyCommandsExample::class,
+        App\Telegram\Handlers\EditMessageCaptionExample::class,
+        App\Telegram\Handlers\SendVideoExample::class,
+        App\Telegram\Handlers\SendAudioExample::class,
+        App\Telegram\Handlers\SendVoiceExample::class,
     ],
 ];
 ```
@@ -112,6 +124,18 @@ Incoming command spam is limited per chat:
 ## Commands
 
 - `php artisan telegram:webhook:set {url?}`
+- `php artisan telegram:webhook:info`
 - `php artisan telegram:webhook:delete {--drop-pending-updates}`
 - `php artisan telegram:poll {--once}`
 - `php artisan telegram:install`
+
+## Additional client methods
+
+The client/facade also supports:
+
+- `getWebhookInfo()`
+- `setMyCommands(array $commands)`
+- `editMessageCaption(array $payload)`
+- `sendVideo(array $payload)`
+- `sendAudio(array $payload)`
+- `sendVoice(array $payload)`
