@@ -31,6 +31,7 @@ class TelegramClient implements TelegramClientInterface
     public function call(string $method, array $payload = []): array
     {
         $this->waitForRateLimitSlot();
+        $payload = $this->sanitizeArraySecrets($payload);
 
         $url = sprintf(
             '%s/bot%s/%s',
@@ -59,12 +60,15 @@ class TelegramClient implements TelegramClientInterface
         }
 
         if (($response['ok'] ?? false) !== true) {
-            $description = (string) ($response['description'] ?? 'Telegram API request failed.');
+            $description = $this->sanitizeExceptionMessage((string) ($response['description'] ?? 'Telegram API request failed.'));
 
             throw new TelegramApiException($description);
         }
 
-        return (array) ($response['result'] ?? []);
+        /** @var array<string, mixed> $result */
+        $result = (array) ($response['result'] ?? []);
+
+        return $this->sanitizeArraySecrets($result);
     }
 
     public function getUpdates(?int $offset = null, ?int $limit = null, ?int $timeout = null): array
@@ -191,5 +195,37 @@ class TelegramClient implements TelegramClientInterface
         ];
 
         return (string) preg_replace($patterns, ['bot[REDACTED]', '[REDACTED]'], $message);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function sanitizeArraySecrets(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            $data[$key] = $this->sanitizeValueSecrets($value);
+        }
+
+        return $data;
+    }
+
+    private function sanitizeValueSecrets(mixed $value): mixed
+    {
+        if ($this->botToken === '') {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            return $this->sanitizeExceptionMessage($value);
+        }
+
+        if (is_array($value)) {
+            foreach ($value as $nestedKey => $nestedValue) {
+                $value[$nestedKey] = $this->sanitizeValueSecrets($nestedValue);
+            }
+        }
+
+        return $value;
     }
 }

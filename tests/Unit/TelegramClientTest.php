@@ -109,3 +109,51 @@ it('proxies media and caption methods', function (): void {
     expect($client->sendVoice(['chat_id' => 1, 'voice' => 'file-id'])['message_id'])->toBe(99);
     expect($client->editMessageCaption(['chat_id' => 1, 'message_id' => 2, 'caption' => 'Updated'])['message_id'])->toBe(99);
 });
+
+it('redacts bot token from outgoing payload values', function (): void {
+    Http::fake([
+        'https://api.telegram.org/*' => Http::response([
+            'ok' => true,
+            'result' => ['message_id' => 15],
+        ]),
+    ]);
+
+    /** @var TelegramClientInterface $client */
+    $client = $this->app->make(TelegramClientInterface::class);
+    $client->sendMessage([
+        'chat_id' => 1,
+        'text' => 'Token is test-token',
+    ]);
+
+    Http::assertSent(function (Request $request): bool {
+        return $request['text'] === 'Token is [REDACTED]';
+    });
+});
+
+it('redacts bot token from successful response payload', function (): void {
+    Http::fake([
+        'https://api.telegram.org/*' => Http::response([
+            'ok' => true,
+            'result' => [
+                'text' => 'Leaked test-token value',
+                'nested' => [
+                    'url' => 'https://api.telegram.org/bottest-token/getMe',
+                ],
+            ],
+        ]),
+    ]);
+
+    /** @var TelegramClientInterface $client */
+    $client = $this->app->make(TelegramClientInterface::class);
+    $result = $client->sendMessage([
+        'chat_id' => 1,
+        'text' => 'hello',
+    ]);
+
+    expect($result)->toBe([
+        'text' => 'Leaked [REDACTED] value',
+        'nested' => [
+            'url' => 'https://api.telegram.org/bot[REDACTED]/getMe',
+        ],
+    ]);
+});
