@@ -9,9 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class WebhookController
 {
-    public function __construct(private readonly UpdateDispatcher $dispatcher)
-    {
-    }
+    public function __construct(private readonly UpdateDispatcher $dispatcher) {}
 
     public function __invoke(Request $request): JsonResponse
     {
@@ -44,7 +42,7 @@ class WebhookController
     }
 
     /**
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function isValidPayload(array $payload): bool
     {

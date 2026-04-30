@@ -168,7 +168,7 @@ class PollUpdatesCommand extends Command
     }
 
     /**
-     * @param array<string, mixed> $update
+     * @param  array<string, mixed>  $update
      */
     private function outputUpdateInvocation(array $update): void
     {
@@ -177,7 +177,7 @@ class PollUpdatesCommand extends Command
     }
 
     /**
-     * @param array<string, mixed> $update
+     * @param  array<string, mixed>  $update
      */
     private function outputCommandInvocation(array $update): void
     {
@@ -207,7 +207,7 @@ class PollUpdatesCommand extends Command
     }
 
     /**
-     * @param array<string, mixed> $update
+     * @param  array<string, mixed>  $update
      */
     private function outputCallbackInvocation(array $update): void
     {
