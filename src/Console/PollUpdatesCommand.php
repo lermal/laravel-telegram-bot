@@ -84,13 +84,21 @@ class PollUpdatesCommand extends Command
             $maxUpdateId = null;
 
             foreach ($updates as $update) {
-                $this->outputUpdateInvocation($update);
-                $this->dispatcher->dispatch($update);
-
                 $updateId = $update['update_id'] ?? null;
 
                 if (is_int($updateId)) {
                     $maxUpdateId = max($maxUpdateId ?? $updateId, $updateId);
+                }
+
+                try {
+                    $this->outputUpdateInvocation($update);
+                    $this->dispatcher->dispatch($update);
+                } catch (Throwable $exception) {
+                    $this->logError(sprintf(
+                        'Failed to process update%s: %s',
+                        is_int($updateId) ? sprintf(' #%d', $updateId) : '',
+                        $this->sanitizeLogMessage($exception->getMessage())
+                    ));
                 }
             }
 
