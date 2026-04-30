@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Event;
 use Lermal\LaravelTelegram\Contracts\TelegramClientInterface;
 use Lermal\LaravelTelegram\Dispatching\UpdateDispatcher;
@@ -9,6 +10,33 @@ use Lermal\LaravelTelegram\Events\PollingStarted;
 use Lermal\LaravelTelegram\Events\PollingStopped;
 use Lermal\LaravelTelegram\Events\UpdateProcessed;
 use Lermal\LaravelTelegram\Events\UpdateProcessingFailed;
+
+it('installs package and writes telegram values to environment file', function (): void {
+    $environmentDirectory = sys_get_temp_dir().DIRECTORY_SEPARATOR.'laravel-telegram-install-'.Str::random(8);
+    mkdir($environmentDirectory);
+
+    $environmentFilePath = $environmentDirectory.DIRECTORY_SEPARATOR.'.env';
+    file_put_contents($environmentFilePath, "APP_NAME=LaravelTelegramTest\nTELEGRAM_BOT_TOKEN=old-token\n");
+
+    $this->app->useEnvironmentPath($environmentDirectory);
+    $this->app->loadEnvironmentFrom('.env');
+
+    $this->artisan('telegram:install')
+        ->expectsQuestion('Enter Telegram bot token', 'new-token')
+        ->expectsQuestion('Enter Telegram bot username (without @)', 'my_bot')
+        ->expectsQuestion('Enter Telegram API base URL', 'https://api.telegram.org')
+        ->assertSuccessful();
+
+    $environmentContents = (string) file_get_contents($environmentFilePath);
+
+    expect($environmentContents)->toContain('TELEGRAM_BOT_TOKEN=new-token');
+    expect($environmentContents)->toContain('TELEGRAM_BOT_NAME=my_bot');
+    expect($environmentContents)->toContain('TELEGRAM_BASE_URL=https://api.telegram.org');
+    expect($environmentContents)->toMatch('/TELEGRAM_WEBHOOK_SECRET=[A-Za-z0-9]{48}/');
+
+    unlink($environmentFilePath);
+    rmdir($environmentDirectory);
+});
 
 it('sets webhook using provided url argument', function (): void {
     $client = Mockery::mock(TelegramClientInterface::class);
