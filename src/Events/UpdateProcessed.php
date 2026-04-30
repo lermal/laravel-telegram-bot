@@ -11,5 +11,6 @@ class UpdateProcessed
         public readonly string $instanceId,
         public readonly ?int $updateId,
         public readonly array $update,
-    ) {}
+    ) {
+    }
 }

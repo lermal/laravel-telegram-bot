@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Lermal\LaravelTelegram\Contracts\TelegramClientInterface;
 use Lermal\LaravelTelegram\Exceptions\TelegramApiException;
@@ -86,7 +87,7 @@ it('sets bot commands', function (): void {
     ]);
 
     expect($result)->toBe(['ok' => true]);
-    Http::assertSent(function (\Illuminate\Http\Client\Request $request): bool {
+    Http::assertSent(function (Request $request): bool {
         return $request['commands'][0]['command'] === 'start'
             && $request['commands'][0]['description'] === 'Start bot';
     });

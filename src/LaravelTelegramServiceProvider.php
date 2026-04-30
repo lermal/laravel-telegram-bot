@@ -2,9 +2,9 @@
 
 namespace Lermal\LaravelTelegram;
 
-use Illuminate\Contracts\Container\Container;
 use Illuminate\Cache\RateLimiter;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\ServiceProvider;
 use Lermal\LaravelTelegram\Console\DeleteWebhookCommand;

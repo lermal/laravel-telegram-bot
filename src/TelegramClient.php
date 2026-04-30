@@ -2,10 +2,10 @@
 
 namespace Lermal\LaravelTelegram;
 
+use Illuminate\Cache\RateLimiter;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Http\Client\RequestException;
-use Illuminate\Cache\RateLimiter;
 use Lermal\LaravelTelegram\Contracts\TelegramClientInterface;
 use Lermal\LaravelTelegram\Exceptions\TelegramApiException;
 
@@ -26,7 +26,8 @@ class TelegramClient implements TelegramClientInterface
         private readonly string $queueLockKey,
         private readonly int $queueLockSeconds,
         private readonly int $waitSleepMs,
-    ) {}
+    ) {
+    }
 
     public function call(string $method, array $payload = []): array
     {

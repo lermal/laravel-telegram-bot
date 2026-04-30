@@ -12,5 +12,6 @@ class UpdateProcessingFailed
         public readonly ?int $updateId,
         public readonly array $update,
         public readonly string $message,
-    ) {}
+    ) {
+    }
 }
