@@ -51,7 +51,11 @@ class TelegramClient implements TelegramClientInterface
                 ->throw()
                 ->json();
         } catch (RequestException $exception) {
-            throw new TelegramApiException($exception->getMessage(), (int) $exception->getCode(), $exception);
+            throw new TelegramApiException(
+                $this->sanitizeExceptionMessage($exception->getMessage()),
+                (int) $exception->getCode(),
+                $exception
+            );
         }
 
         if (($response['ok'] ?? false) !== true) {
@@ -141,5 +145,19 @@ class TelegramClient implements TelegramClientInterface
 
             $this->rateLimiter->hit($this->rateLimitKey, 1);
         });
+    }
+
+    private function sanitizeExceptionMessage(string $message): string
+    {
+        if ($this->botToken === '') {
+            return $message;
+        }
+
+        $patterns = [
+            '/bot'.preg_quote($this->botToken, '/').'/',
+            '/'.preg_quote($this->botToken, '/').'/',
+        ];
+
+        return (string) preg_replace($patterns, ['bot[REDACTED]', '[REDACTED]'], $message);
     }
 }

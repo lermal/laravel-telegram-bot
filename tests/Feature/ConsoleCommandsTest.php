@@ -43,7 +43,7 @@ it('polls updates once and stores next offset', function (): void {
         ->once()
         ->with(0, 100, 10)
         ->andReturn([
-            ['update_id' => 11, 'message' => ['text' => 'a']],
+            ['update_id' => 11, 'message' => ['text' => '/start foo bar']],
             ['update_id' => 15, 'message' => ['text' => 'b']],
         ]);
     $this->app->instance(TelegramClientInterface::class, $client);
@@ -52,7 +52,9 @@ it('polls updates once and stores next offset', function (): void {
     $dispatcher->shouldReceive('dispatch')->twice();
     $this->app->instance(UpdateDispatcher::class, $dispatcher);
 
-    $this->artisan('telegram:poll', ['--once' => true])->assertSuccessful();
+    $this->artisan('telegram:poll', ['--once' => true])
+        ->expectsOutputToContain('Command called: /start | params: foo bar')
+        ->assertSuccessful();
 
     expect(cache()->get('telegram:test:polling:offset'))->toBe(16);
 });
