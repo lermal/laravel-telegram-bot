@@ -7,11 +7,19 @@ use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Http\Client\ConnectionException;
 use Lermal\LaravelTelegram\Contracts\TelegramClientInterface;
 use Lermal\LaravelTelegram\Dispatching\UpdateDispatcher;
+use Lermal\LaravelTelegram\Events\PollingError;
+use Lermal\LaravelTelegram\Events\PollingStarted;
+use Lermal\LaravelTelegram\Events\PollingStopped;
+use Lermal\LaravelTelegram\Events\UpdateProcessed;
+use Lermal\LaravelTelegram\Events\UpdateProcessingFailed;
 use Throwable;
 
 class PollUpdatesCommand extends Command
 {
-    protected $signature = 'telegram:poll {--once : Run single polling iteration only}';
+    protected $signature = 'telegram:poll
+        {--once : Run single polling iteration only}
+        {--max-iterations= : Stop after N polling iterations}
+        {--stop-when-empty : Stop when Telegram returns an empty updates batch}';
 
     protected $description = 'Poll updates from Telegram Bot API and dispatch to handlers.';
 
@@ -31,12 +39,18 @@ class PollUpdatesCommand extends Command
         $pollingTimeout = (int) config('telegram.polling.timeout', 30);
         $httpTimeout = (int) config('telegram.http.timeout', 20);
         $sleepMs = (int) config('telegram.polling.sleep_ms', 1000);
+        $errorBackoffInitialMs = (int) config('telegram.polling.error_backoff.initial_ms', 500);
+        $errorBackoffMaxMs = (int) config('telegram.polling.error_backoff.max_ms', 8000);
         $effectiveTimeout = $this->resolveEffectivePollingTimeout($pollingTimeout, $httpTimeout);
+        $maxIterations = max(0, (int) ($this->option('max-iterations') ?? 0));
+        $iterations = 0;
+        $currentErrorBackoffMs = 0;
         $instanceId = (string) str()->uuid();
         $stopRequested = false;
 
         $this->cache->forever($activeProcessKey, $instanceId);
         $this->logInfo(sprintf('Polling started. Instance: %s', $instanceId));
+        event(new PollingStarted($instanceId));
 
         if ($effectiveTimeout !== $pollingTimeout) {
             $this->logDebug(sprintf(
@@ -66,19 +80,30 @@ class PollUpdatesCommand extends Command
 
             $offset = (int) $this->cache->get($offsetKey, 0);
             $updates = [];
+            $updatesFetchedSuccessfully = false;
 
             try {
                 $updates = $this->client->getUpdates($offset, $limit, $effectiveTimeout);
+                $updatesFetchedSuccessfully = true;
+                $currentErrorBackoffMs = 0;
             } catch (ConnectionException $exception) {
+                $errorMessage = $this->sanitizeLogMessage($exception->getMessage());
                 $this->logError(sprintf(
                     'Telegram connection error while polling updates: %s',
-                    $this->sanitizeLogMessage($exception->getMessage())
+                    $errorMessage
                 ));
+                event(new PollingError($instanceId, $errorMessage));
+                $currentErrorBackoffMs = $this->nextErrorBackoffMs($currentErrorBackoffMs, $errorBackoffInitialMs, $errorBackoffMaxMs);
+                $this->sleepErrorBackoff($currentErrorBackoffMs);
             } catch (Throwable $exception) {
+                $errorMessage = $this->sanitizeLogMessage($exception->getMessage());
                 $this->logError(sprintf(
                     'Unexpected polling error: %s',
-                    $this->sanitizeLogMessage($exception->getMessage())
+                    $errorMessage
                 ));
+                event(new PollingError($instanceId, $errorMessage));
+                $currentErrorBackoffMs = $this->nextErrorBackoffMs($currentErrorBackoffMs, $errorBackoffInitialMs, $errorBackoffMaxMs);
+                $this->sleepErrorBackoff($currentErrorBackoffMs);
             }
 
             $maxUpdateId = null;
@@ -93,17 +118,34 @@ class PollUpdatesCommand extends Command
                 try {
                     $this->outputUpdateInvocation($update);
                     $this->dispatcher->dispatch($update);
+                    event(new UpdateProcessed($instanceId, is_int($updateId) ? $updateId : null, $update));
                 } catch (Throwable $exception) {
+                    $errorMessage = $this->sanitizeLogMessage($exception->getMessage());
                     $this->logError(sprintf(
                         'Failed to process update%s: %s',
                         is_int($updateId) ? sprintf(' #%d', $updateId) : '',
-                        $this->sanitizeLogMessage($exception->getMessage())
+                        $errorMessage
                     ));
+                    event(new UpdateProcessingFailed($instanceId, is_int($updateId) ? $updateId : null, $update, $errorMessage));
                 }
             }
 
             if ($maxUpdateId !== null) {
                 $this->cache->forever($offsetKey, $maxUpdateId + 1);
+            }
+
+            if ($this->option('stop-when-empty') && $updatesFetchedSuccessfully && $updates === []) {
+                $this->logInfo('Polling stopped because updates batch is empty.');
+
+                break;
+            }
+
+            $iterations++;
+
+            if ($maxIterations > 0 && $iterations >= $maxIterations) {
+                $this->logInfo(sprintf('Polling stopped after reaching max iterations: %d', $maxIterations));
+
+                break;
             }
 
             if (! $this->option('once') && ! $stopRequested) {
@@ -120,6 +162,7 @@ class PollUpdatesCommand extends Command
         } else {
             $this->logInfo('Polling stopped.');
         }
+        event(new PollingStopped($instanceId, $stopRequested));
 
         return self::SUCCESS;
     }
@@ -205,6 +248,28 @@ class PollUpdatesCommand extends Command
         ];
 
         return (string) preg_replace($patterns, ['bot[REDACTED]', '[REDACTED]'], $message);
+    }
+
+    private function nextErrorBackoffMs(int $currentBackoffMs, int $initialBackoffMs, int $maxBackoffMs): int
+    {
+        $initial = max(1, $initialBackoffMs);
+        $max = max($initial, $maxBackoffMs);
+
+        if ($currentBackoffMs <= 0) {
+            return $initial;
+        }
+
+        return min($currentBackoffMs * 2, $max);
+    }
+
+    private function sleepErrorBackoff(int $backoffMs): void
+    {
+        if ($this->option('once')) {
+            return;
+        }
+
+        $this->logWarn(sprintf('Applying polling error backoff: %d ms', $backoffMs));
+        usleep(max($backoffMs, 1) * 1000);
     }
 
     private function logInfo(string $message): void

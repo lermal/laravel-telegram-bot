@@ -1,8 +1,14 @@
 <?php
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Event;
 use Lermal\LaravelTelegram\Contracts\TelegramClientInterface;
 use Lermal\LaravelTelegram\Dispatching\UpdateDispatcher;
+use Lermal\LaravelTelegram\Events\PollingError;
+use Lermal\LaravelTelegram\Events\PollingStarted;
+use Lermal\LaravelTelegram\Events\PollingStopped;
+use Lermal\LaravelTelegram\Events\UpdateProcessed;
+use Lermal\LaravelTelegram\Events\UpdateProcessingFailed;
 
 it('sets webhook using provided url argument', function (): void {
     $client = Mockery::mock(TelegramClientInterface::class);
@@ -149,4 +155,121 @@ it('logs dispatch errors and continues polling iteration', function (): void {
         ->assertSuccessful();
 
     expect(cache()->get('telegram:test:polling:offset:dispatch-error'))->toBe(13);
+});
+
+it('dispatches telemetry events for polling lifecycle and updates', function (): void {
+    Event::fake();
+
+    config()->set('telegram.polling.offset_cache_key', 'telegram:test:polling:offset:telemetry');
+    config()->set('telegram.polling.limit', 100);
+    config()->set('telegram.polling.timeout', 10);
+
+    $client = Mockery::mock(TelegramClientInterface::class);
+    $client
+        ->shouldReceive('getUpdates')
+        ->once()
+        ->with(0, 100, 10)
+        ->andReturn([
+            ['update_id' => 21, 'message' => ['text' => '/ok']],
+            ['update_id' => 22, 'message' => ['text' => '/fail']],
+        ]);
+    $this->app->instance(TelegramClientInterface::class, $client);
+
+    $dispatcher = Mockery::mock(UpdateDispatcher::class);
+    $dispatcher->shouldReceive('dispatch')->once()->andReturnNull();
+    $dispatcher->shouldReceive('dispatch')->once()->andThrow(new RuntimeException('test dispatch failure'));
+    $this->app->instance(UpdateDispatcher::class, $dispatcher);
+
+    $this->artisan('telegram:poll', ['--once' => true])->assertSuccessful();
+
+    Event::assertDispatched(PollingStarted::class);
+    Event::assertDispatched(PollingStopped::class);
+    Event::assertDispatched(UpdateProcessed::class, 1);
+    Event::assertDispatched(UpdateProcessingFailed::class, 1);
+});
+
+it('dispatches polling error telemetry event on getUpdates failure', function (): void {
+    Event::fake();
+
+    config()->set('telegram.polling.limit', 100);
+    config()->set('telegram.polling.timeout', 10);
+
+    $client = Mockery::mock(TelegramClientInterface::class);
+    $client
+        ->shouldReceive('getUpdates')
+        ->once()
+        ->andThrow(new ConnectionException('connection failed'));
+    $this->app->instance(TelegramClientInterface::class, $client);
+
+    $dispatcher = Mockery::mock(UpdateDispatcher::class);
+    $dispatcher->shouldNotReceive('dispatch');
+    $this->app->instance(UpdateDispatcher::class, $dispatcher);
+
+    $this->artisan('telegram:poll', ['--once' => true])->assertSuccessful();
+
+    Event::assertDispatched(PollingError::class);
+});
+
+it('stops polling when updates batch is empty with stop-when-empty option', function (): void {
+    config()->set('telegram.polling.limit', 100);
+    config()->set('telegram.polling.timeout', 10);
+
+    $client = Mockery::mock(TelegramClientInterface::class);
+    $client
+        ->shouldReceive('getUpdates')
+        ->once()
+        ->with(0, 100, 10)
+        ->andReturn([]);
+    $this->app->instance(TelegramClientInterface::class, $client);
+
+    $dispatcher = Mockery::mock(UpdateDispatcher::class);
+    $dispatcher->shouldNotReceive('dispatch');
+    $this->app->instance(UpdateDispatcher::class, $dispatcher);
+
+    $this->artisan('telegram:poll', ['--stop-when-empty' => true])
+        ->expectsOutputToContain('[INFO] Polling stopped because updates batch is empty.')
+        ->assertSuccessful();
+});
+
+it('does not stop by empty batch when getUpdates fails with stop-when-empty option', function (): void {
+    config()->set('telegram.polling.limit', 100);
+    config()->set('telegram.polling.timeout', 10);
+
+    $client = Mockery::mock(TelegramClientInterface::class);
+    $client
+        ->shouldReceive('getUpdates')
+        ->once()
+        ->andThrow(new ConnectionException('connection failed'));
+    $this->app->instance(TelegramClientInterface::class, $client);
+
+    $dispatcher = Mockery::mock(UpdateDispatcher::class);
+    $dispatcher->shouldNotReceive('dispatch');
+    $this->app->instance(UpdateDispatcher::class, $dispatcher);
+
+    $this->artisan('telegram:poll', ['--once' => true, '--stop-when-empty' => true])
+        ->doesntExpectOutputToContain('[INFO] Polling stopped because updates batch is empty.')
+        ->expectsOutputToContain('[ERROR] Telegram connection error while polling updates: connection failed')
+        ->assertSuccessful();
+});
+
+it('stops polling after reaching max iterations', function (): void {
+    config()->set('telegram.polling.limit', 100);
+    config()->set('telegram.polling.timeout', 10);
+    config()->set('telegram.polling.sleep_ms', 1);
+
+    $client = Mockery::mock(TelegramClientInterface::class);
+    $client
+        ->shouldReceive('getUpdates')
+        ->twice()
+        ->with(0, 100, 10)
+        ->andReturn([]);
+    $this->app->instance(TelegramClientInterface::class, $client);
+
+    $dispatcher = Mockery::mock(UpdateDispatcher::class);
+    $dispatcher->shouldNotReceive('dispatch');
+    $this->app->instance(UpdateDispatcher::class, $dispatcher);
+
+    $this->artisan('telegram:poll', ['--max-iterations' => 2])
+        ->expectsOutputToContain('[INFO] Polling stopped after reaching max iterations: 2')
+        ->assertSuccessful();
 });

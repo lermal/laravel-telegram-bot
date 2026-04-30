@@ -15,6 +15,10 @@ return [
         'limit' => (int) env('TELEGRAM_POLL_LIMIT', 100), // how many updates to fetch per request
         'timeout' => (int) env('TELEGRAM_POLL_TIMEOUT', 30), // timeout for the request
         'sleep_ms' => (int) env('TELEGRAM_POLL_SLEEP_MS', 1000), // how long to sleep between requests
+        'error_backoff' => [
+            'initial_ms' => (int) env('TELEGRAM_POLL_ERROR_BACKOFF_INITIAL_MS', 500), // initial error backoff delay in milliseconds
+            'max_ms' => (int) env('TELEGRAM_POLL_ERROR_BACKOFF_MAX_MS', 8000), // max error backoff delay in milliseconds
+        ],
         'lock_seconds' => (int) env('TELEGRAM_POLL_LOCK_SECONDS', 40), // how long to lock the polling
         'offset_cache_key' => env('TELEGRAM_POLL_OFFSET_CACHE_KEY', 'telegram.polling.offset'), // cache key for the offset
     ],

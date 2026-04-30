@@ -28,8 +28,24 @@ class WebhookController
 
         /** @var array<string, mixed> $update */
         $update = $request->json()->all();
+
+        if (! $this->isValidPayload($update)) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Invalid webhook payload.',
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         $this->dispatcher->dispatch($update);
 
         return response()->json(['ok' => true]);
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private function isValidPayload(array $payload): bool
+    {
+        return isset($payload['update_id']) && is_int($payload['update_id']);
     }
 }
