@@ -72,7 +72,7 @@ class PollUpdatesCommand extends Command
         }
 
         do {
-            if (! $this->isCurrentProcess($activeProcessKey, $instanceId)) {
+            if ($this->isCurrentProcess($activeProcessKey, $instanceId) === false) {
                 $this->logWarn('Polling was replaced by a newer process. Stopping current process.');
 
                 break;
@@ -148,10 +148,10 @@ class PollUpdatesCommand extends Command
                 break;
             }
 
-            if (! $this->option('once') && ! $stopRequested) {
+            if ($this->option('once') === false && $stopRequested === false) {
                 usleep($sleepMs * 1000);
             }
-        } while (! $this->option('once') && ! $stopRequested);
+        } while ($this->option('once') === false && $stopRequested === false);
 
         if ($this->isCurrentProcess($activeProcessKey, $instanceId)) {
             $this->cache->forget($activeProcessKey);
@@ -183,20 +183,20 @@ class PollUpdatesCommand extends Command
     {
         $text = $update['message']['text'] ?? null;
 
-        if (! is_string($text)) {
+        if (is_string($text) === false) {
             return;
         }
 
         $trimmed = trim($text);
 
-        if ($trimmed === '' || ! str_starts_with($trimmed, '/')) {
+        if ($trimmed === '' || str_starts_with($trimmed, '/') === false) {
             return;
         }
 
         $parts = preg_split('/\s+/', $trimmed) ?: [];
         $command = array_shift($parts);
 
-        if (! is_string($command) || $command === '') {
+        if (is_string($command) === false || $command === '') {
             return;
         }
 
@@ -213,7 +213,7 @@ class PollUpdatesCommand extends Command
     {
         $callbackData = $update['callback_query']['data'] ?? null;
 
-        if (! is_string($callbackData) || trim($callbackData) === '') {
+        if (is_string($callbackData) === false || trim($callbackData) === '') {
             return;
         }
 
