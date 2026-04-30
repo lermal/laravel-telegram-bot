@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Client\ConnectionException;
 use Lermal\LaravelTelegram\Contracts\TelegramClientInterface;
 use Lermal\LaravelTelegram\Dispatching\UpdateDispatcher;
 
@@ -44,7 +45,7 @@ it('polls updates once and stores next offset', function (): void {
         ->with(0, 100, 10)
         ->andReturn([
             ['update_id' => 11, 'message' => ['text' => '/start foo bar']],
-            ['update_id' => 15, 'message' => ['text' => 'b']],
+            ['update_id' => 15, 'callback_query' => ['data' => 'btn:confirm:42']],
         ]);
     $this->app->instance(TelegramClientInterface::class, $client);
 
@@ -53,8 +54,51 @@ it('polls updates once and stores next offset', function (): void {
     $this->app->instance(UpdateDispatcher::class, $dispatcher);
 
     $this->artisan('telegram:poll', ['--once' => true])
-        ->expectsOutputToContain('Command called: /start | params: foo bar')
+        ->expectsOutputToContain('[INFO] Command called: /start | params: foo bar')
+        ->expectsOutputToContain('[INFO] Callback called: btn:confirm:42')
         ->assertSuccessful();
 
     expect(cache()->get('telegram:test:polling:offset'))->toBe(16);
+});
+
+it('adjusts polling timeout to be lower than http timeout', function (): void {
+    config()->set('telegram.polling.limit', 100);
+    config()->set('telegram.polling.timeout', 30);
+    config()->set('telegram.http.timeout', 20);
+
+    $client = Mockery::mock(TelegramClientInterface::class);
+    $client
+        ->shouldReceive('getUpdates')
+        ->once()
+        ->with(0, 100, 19)
+        ->andReturn([]);
+    $this->app->instance(TelegramClientInterface::class, $client);
+
+    $dispatcher = Mockery::mock(UpdateDispatcher::class);
+    $dispatcher->shouldNotReceive('dispatch');
+    $this->app->instance(UpdateDispatcher::class, $dispatcher);
+
+    $this->artisan('telegram:poll', ['--once' => true])
+        ->expectsOutputToContain('[DEBUG] Polling timeout adjusted from 30 to 19 seconds to prevent HTTP client timeout.')
+        ->assertSuccessful();
+});
+
+it('logs polling connection errors and does not crash in once mode', function (): void {
+    config()->set('telegram.polling.limit', 100);
+    config()->set('telegram.polling.timeout', 10);
+
+    $client = Mockery::mock(TelegramClientInterface::class);
+    $client
+        ->shouldReceive('getUpdates')
+        ->once()
+        ->andThrow(new ConnectionException('cURL error 28: Operation timed out for https://api.telegram.org/bot123/getUpdates'));
+    $this->app->instance(TelegramClientInterface::class, $client);
+
+    $dispatcher = Mockery::mock(UpdateDispatcher::class);
+    $dispatcher->shouldNotReceive('dispatch');
+    $this->app->instance(UpdateDispatcher::class, $dispatcher);
+
+    $this->artisan('telegram:poll', ['--once' => true])
+        ->expectsOutputToContain('[ERROR] Telegram connection error while polling updates:')
+        ->assertSuccessful();
 });

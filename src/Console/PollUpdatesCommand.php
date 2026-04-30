@@ -4,8 +4,10 @@ namespace Lermal\LaravelTelegram\Console;
 
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
+use Illuminate\Http\Client\ConnectionException;
 use Lermal\LaravelTelegram\Contracts\TelegramClientInterface;
 use Lermal\LaravelTelegram\Dispatching\UpdateDispatcher;
+use Throwable;
 
 class PollUpdatesCommand extends Command
 {
@@ -26,12 +28,23 @@ class PollUpdatesCommand extends Command
         $activeProcessKey = (string) config('telegram.polling.active_process_cache_key', 'telegram.polling.active_process');
         $offsetKey = (string) config('telegram.polling.offset_cache_key', 'telegram.polling.offset');
         $limit = (int) config('telegram.polling.limit', 100);
-        $timeout = (int) config('telegram.polling.timeout', 30);
+        $pollingTimeout = (int) config('telegram.polling.timeout', 30);
+        $httpTimeout = (int) config('telegram.http.timeout', 20);
         $sleepMs = (int) config('telegram.polling.sleep_ms', 1000);
+        $effectiveTimeout = $this->resolveEffectivePollingTimeout($pollingTimeout, $httpTimeout);
         $instanceId = (string) str()->uuid();
         $stopRequested = false;
 
         $this->cache->forever($activeProcessKey, $instanceId);
+        $this->logInfo(sprintf('Polling started. Instance: %s', $instanceId));
+
+        if ($effectiveTimeout !== $pollingTimeout) {
+            $this->logDebug(sprintf(
+                'Polling timeout adjusted from %d to %d seconds to prevent HTTP client timeout.',
+                $pollingTimeout,
+                $effectiveTimeout
+            ));
+        }
 
         $signals = array_values(array_filter([
             defined('SIGINT') ? SIGINT : null,
@@ -46,17 +59,32 @@ class PollUpdatesCommand extends Command
 
         do {
             if (! $this->isCurrentProcess($activeProcessKey, $instanceId)) {
-                $this->warn('Polling was replaced by a newer process. Stopping current process.');
+                $this->logWarn('Polling was replaced by a newer process. Stopping current process.');
 
                 break;
             }
 
             $offset = (int) $this->cache->get($offsetKey, 0);
-            $updates = $this->client->getUpdates($offset, $limit, $timeout);
+            $updates = [];
+
+            try {
+                $updates = $this->client->getUpdates($offset, $limit, $effectiveTimeout);
+            } catch (ConnectionException $exception) {
+                $this->logError(sprintf(
+                    'Telegram connection error while polling updates: %s',
+                    $this->sanitizeLogMessage($exception->getMessage())
+                ));
+            } catch (Throwable $exception) {
+                $this->logError(sprintf(
+                    'Unexpected polling error: %s',
+                    $this->sanitizeLogMessage($exception->getMessage())
+                ));
+            }
+
             $maxUpdateId = null;
 
             foreach ($updates as $update) {
-                $this->outputCommandInvocation($update);
+                $this->outputUpdateInvocation($update);
                 $this->dispatcher->dispatch($update);
 
                 $updateId = $update['update_id'] ?? null;
@@ -80,10 +108,21 @@ class PollUpdatesCommand extends Command
         }
 
         if ($stopRequested) {
-            $this->info('Polling stopped by signal.');
+            $this->logInfo('Polling stopped by signal.');
+        } else {
+            $this->logInfo('Polling stopped.');
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * @param array<string, mixed> $update
+     */
+    private function outputUpdateInvocation(array $update): void
+    {
+        $this->outputCommandInvocation($update);
+        $this->outputCallbackInvocation($update);
     }
 
     /**
@@ -113,11 +152,70 @@ class PollUpdatesCommand extends Command
         $params = implode(' ', $parts);
         $formattedParams = $params === '' ? 'none' : $params;
 
-        $this->line(sprintf('Command called: %s | params: %s', $command, $formattedParams));
+        $this->logInfo(sprintf('Command called: %s | params: %s', $command, $formattedParams));
+    }
+
+    /**
+     * @param array<string, mixed> $update
+     */
+    private function outputCallbackInvocation(array $update): void
+    {
+        $callbackData = $update['callback_query']['data'] ?? null;
+
+        if (! is_string($callbackData) || trim($callbackData) === '') {
+            return;
+        }
+
+        $this->logInfo(sprintf('Callback called: %s', trim($callbackData)));
     }
 
     private function isCurrentProcess(string $activeProcessKey, string $instanceId): bool
     {
         return $this->cache->get($activeProcessKey) === $instanceId;
+    }
+
+    private function resolveEffectivePollingTimeout(int $pollingTimeout, int $httpTimeout): int
+    {
+        if ($httpTimeout <= 1) {
+            return max(1, $pollingTimeout);
+        }
+
+        return min(max(1, $pollingTimeout), $httpTimeout - 1);
+    }
+
+    private function sanitizeLogMessage(string $message): string
+    {
+        $token = (string) config('telegram.bot_token', '');
+
+        if ($token === '') {
+            return $message;
+        }
+
+        $patterns = [
+            '/bot'.preg_quote($token, '/').'/',
+            '/'.preg_quote($token, '/').'/',
+        ];
+
+        return (string) preg_replace($patterns, ['bot[REDACTED]', '[REDACTED]'], $message);
+    }
+
+    private function logInfo(string $message): void
+    {
+        $this->info(sprintf('[INFO] %s', $message));
+    }
+
+    private function logDebug(string $message): void
+    {
+        $this->line(sprintf('[DEBUG] %s', $message));
+    }
+
+    private function logWarn(string $message): void
+    {
+        $this->warn(sprintf('[WARN] %s', $message));
+    }
+
+    private function logError(string $message): void
+    {
+        $this->error(sprintf('[ERROR] %s', $message));
     }
 }
