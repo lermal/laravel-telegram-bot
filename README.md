@@ -46,6 +46,52 @@ app(\Lermal\LaravelTelegram\Support\RawApiCaller::class)
     ]);
 ```
 
+## Usage examples in repository
+
+The `examples` directory contains ready-to-use handler examples:
+
+- `examples/StartCommandHandler.php` - handles `/start` command and sends inline button.
+- `examples/ExampleCallbackHandler.php` - handles button callback and edits message text.
+- `examples/EchoMessageHandler.php` - echoes incoming text messages.
+- `examples/PhotoCommandHandler.php` - handles `/photo` and sends a photo.
+- `examples/DocumentCommandHandler.php` - handles `/document` and sends a document.
+- `examples/InlineKeyboardDemoHandler.php` - sends inline keyboard with multiple actions.
+- `examples/InlineKeyboardCallbackRouterHandler.php` - reacts to inline callbacks (`inline:*`).
+- `examples/ReplyKeyboardDemoHandler.php` - sends a reply keyboard with text buttons.
+- `examples/ReplyKeyboardResponseHandler.php` - reacts to reply keyboard button texts.
+
+Register handlers in your application config:
+
+```php
+// config/telegram.php
+return [
+    // ...
+    'handlers' => [
+        App\Telegram\Handlers\StartCommandHandler::class,
+        App\Telegram\Handlers\ExampleCallbackHandler::class,
+        App\Telegram\Handlers\EchoMessageHandler::class,
+        App\Telegram\Handlers\PhotoCommandHandler::class,
+        App\Telegram\Handlers\DocumentCommandHandler::class,
+        App\Telegram\Handlers\InlineKeyboardDemoHandler::class,
+        App\Telegram\Handlers\InlineKeyboardCallbackRouterHandler::class,
+        App\Telegram\Handlers\ReplyKeyboardDemoHandler::class,
+        App\Telegram\Handlers\ReplyKeyboardResponseHandler::class,
+    ],
+];
+```
+
+For polling mode:
+
+```bash
+php artisan telegram:poll --once
+```
+
+For webhook mode:
+
+```bash
+php artisan telegram:webhook:set "https://your-domain.com/telegram/webhook"
+```
+
 ## Commands
 
 - `php artisan telegram:webhook:set {url?}`
