@@ -110,7 +110,7 @@ it('proxies media and caption methods', function (): void {
     expect($client->editMessageCaption(['chat_id' => 1, 'message_id' => 2, 'caption' => 'Updated'])['message_id'])->toBe(99);
 });
 
-it('redacts bot token from outgoing payload values', function (): void {
+it('blocks outgoing payload when it contains bot token', function (): void {
     Http::fake([
         'https://api.telegram.org/*' => Http::response([
             'ok' => true,
@@ -120,14 +120,13 @@ it('redacts bot token from outgoing payload values', function (): void {
 
     /** @var TelegramClientInterface $client */
     $client = $this->app->make(TelegramClientInterface::class);
-    $client->sendMessage([
+
+    expect(fn () => $client->sendMessage([
         'chat_id' => 1,
         'text' => 'Token is test-token',
-    ]);
+    ]))->toThrow(TelegramApiException::class, 'Outgoing payload contains bot token and was blocked.');
 
-    Http::assertSent(function (Request $request): bool {
-        return $request['text'] === 'Token is [REDACTED]';
-    });
+    Http::assertNothingSent();
 });
 
 it('redacts bot token from successful response payload', function (): void {

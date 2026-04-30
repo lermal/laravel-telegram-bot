@@ -31,7 +31,10 @@ class TelegramClient implements TelegramClientInterface
     public function call(string $method, array $payload = []): array
     {
         $this->waitForRateLimitSlot();
-        $payload = $this->sanitizeArraySecrets($payload);
+
+        if ($this->containsTokenInArray($payload)) {
+            throw new TelegramApiException('Outgoing payload contains bot token and was blocked.');
+        }
 
         $url = sprintf(
             '%s/bot%s/%s',
@@ -227,5 +230,40 @@ class TelegramClient implements TelegramClientInterface
         }
 
         return $value;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function containsTokenInArray(array $data): bool
+    {
+        foreach ($data as $value) {
+            if ($this->containsTokenInValue($value)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function containsTokenInValue(mixed $value): bool
+    {
+        if ($this->botToken === '') {
+            return false;
+        }
+
+        if (is_string($value)) {
+            return str_contains($value, $this->botToken);
+        }
+
+        if (is_array($value)) {
+            foreach ($value as $nestedValue) {
+                if ($this->containsTokenInValue($nestedValue)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 }
