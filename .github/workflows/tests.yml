@@ -24,7 +24,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          tools: composer:v2
+          tools: composer:v2, pint
           coverage: none
 
       - name: Cache Composer dependencies
@@ -39,7 +39,7 @@ jobs:
         run: composer install --no-interaction --prefer-dist
 
       - name: Run code style check
-        run: vendor/bin/pint --test
+        run: pint --test
 
       - name: Run package tests
         run: composer test
