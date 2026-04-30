@@ -21,7 +21,7 @@
         "illuminate/console": "^13.0"
     },
     "require-dev": {
-        "orchestra/testbench": "^10.0",
+        "orchestra/testbench": "^11.0",
         "pestphp/pest": "^4.0",
         "pestphp/pest-plugin-laravel": "^4.0"
     },
@@ -49,5 +49,10 @@
     "prefer-stable": true,
     "scripts": {
         "test": "pest --compact"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
     }
 }
