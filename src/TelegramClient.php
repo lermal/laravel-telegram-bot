@@ -26,8 +26,7 @@ class TelegramClient implements TelegramClientInterface
         private readonly string $queueLockKey,
         private readonly int $queueLockSeconds,
         private readonly int $waitSleepMs,
-    ) {
-    }
+    ) {}
 
     public function call(string $method, array $payload = []): array
     {
